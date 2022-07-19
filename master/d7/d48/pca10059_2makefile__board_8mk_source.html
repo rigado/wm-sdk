@@ -84,6 +84,7 @@ $(document).ready(function(){initNavTree('d7/d48/pca10059_2makefile__board_8mk_s
 <div class="contents">
 <a href="../../d7/d48/pca10059_2makefile__board_8mk.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;# Add board specific sources here, if any</div>
 <div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;SRCS += board/$(target_board)/board_custom_init.c</div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;CFLAGS += -DUSB_PID=$(usb_pid)</div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- HTML footer for doxygen 1.8.17-->
