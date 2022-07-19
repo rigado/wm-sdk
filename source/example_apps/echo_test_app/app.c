@@ -23,7 +23,7 @@
 #include "cmd.h"
 
 /** Period to send data */
-#define DEFAULT_PERIOD_S    5
+#define DEFAULT_PERIOD_S    30
 #define DEFAULT_PERIOD_US   (DEFAULT_PERIOD_S*1000*1000)
 
 /** Time needed to execute the periodic work, in us */
@@ -33,7 +33,7 @@
 #define SET_PERIOD_EP  10
 
 /** Endpoint to send data */
-#define DATA_EP        13
+#define DATA_EP        1
 
 /** Endpoint to obtain data from the cloud and send echo packet */
 #define CLOUD_EP       14
@@ -41,6 +41,35 @@
 /** Period to send measurements, in us */
 static uint32_t period_us;
 
+typedef struct __attribute__((__packed__)) {
+    uint8_t hubBoardVer[3];
+    uint8_t sensorBoardVer[3];
+    uint32_t thresholds_enabled;
+    float humidity;
+    float temperature;
+    float iaq;
+    float voc;
+    float pm1_0;
+    float pm2_5;
+    float pm10_0;
+    float pc0_5;
+    float pc1_0;
+    float pc2_5;
+    float pc10_0;
+    uint16_t co2;
+    float co;
+    uint8_t pir_sensor;
+    uint32_t fan_fail_address;
+    uint8_t sensor_threshold_trigger;
+    uint8_t fan_speed;
+    uint8_t led_dimming_level;
+    uint32_t reporting_interval;
+} sensor_data_t;
+
+typedef struct __attribute__((__packed__)) {
+    uint8_t message_type;
+    sensor_data_t sensor_data;
+} verticies_msg_t;
 
 /**
  * \brief   Periodic callback
@@ -51,17 +80,41 @@ static uint32_t send_data(void)
     // You can do anything you want for EXECUTION_TIME_US. In this example, a
     // monotonically increasing 32-bit value is sent to the sink.
     static uint32_t count = 0;
-    uint8_t data[4];
-    memset(data, 0, sizeof(data));
+    // uint8_t data[4];
+    // memset(data, 0, sizeof(data));
 
-    Pack_packLe(data, count, 4);
+    // Pack_packLe(data, count, 4);
 
-    count++;
+    uint8_t ver[3] = { 1, 1, 1 };
+    verticies_msg_t msg;
+    msg.message_type = 0;
+    memcpy(msg.sensor_data.hubBoardVer, ver, 3);
+    memcpy(msg.sensor_data.sensorBoardVer, ver, 3);
+    msg.sensor_data.thresholds_enabled = 0x00000003;
+    msg.sensor_data.humidity = 40.05f;
+    msg.sensor_data.temperature = 24.16f;
+    msg.sensor_data.iaq = 1.013f;
+    msg.sensor_data.voc = 0.044f;
+    msg.sensor_data.pm1_0 = 14.124;
+    msg.sensor_data.pm2_5 = 16.653;
+    msg.sensor_data.pm10_0 = 18.734;
+    msg.sensor_data.pc0_5 = 24.000;
+    msg.sensor_data.pc1_0 = 130.000;
+    msg.sensor_data.pc2_5 = 24.000;
+    msg.sensor_data.pc10_0 = 0.000;
+    msg.sensor_data.co2 = 485;
+    msg.sensor_data.co = 1.150;
+    msg.sensor_data.pir_sensor = 0;
+    msg.sensor_data.fan_fail_address = 0;
+    msg.sensor_data.sensor_threshold_trigger = 0;
+    msg.sensor_data.fan_speed = count % 101;
+    msg.sensor_data.led_dimming_level = 80;
+    msg.sensor_data.reporting_interval = 15;
 
     // Create a data packet to send
     app_lib_data_to_send_t data_to_send;
-    data_to_send.bytes = data;
-    data_to_send.num_bytes = sizeof(data);
+    data_to_send.bytes = (uint8_t*)&msg;
+    data_to_send.num_bytes = sizeof(msg);
     data_to_send.dest_address = APP_ADDR_ANYSINK;
     data_to_send.src_endpoint = DATA_EP;
     data_to_send.dest_endpoint = DATA_EP;
@@ -73,9 +126,11 @@ static uint32_t send_data(void)
     // Send the data packet
     (void)lib_data->sendData(&data_to_send);
 
+    count++;
+
     led_toggle(LED_1_PIN);
-    if(get_wrp_print_msg_st())
-        uart_fprintf("Send data - %02x%02x%02x%02x\r\n", data[3], data[2], data[1], data[0]);
+    // if(get_wrp_print_msg_st())
+    //     uart_fprintf("Send data - %02x%02x%02x%02x\r\n", data[3], data[2], data[1], data[0]);
 
     // Inform the stack that this function should be called again in
     // period_us microseconds. By returning APP_LIB_SYSTEM_STOP_PERIODIC,
@@ -109,7 +164,7 @@ static void send_echo(const app_lib_data_received_t * data)
  * \return  Result code, \ref app_lib_data_receive_res_e
  */
 static app_lib_data_receive_res_e dataReceivedCb(
-    const app_lib_data_received_t * data)
+    const app_lib_data_received_t * const data)
 {
     led_toggle(LED_2_PIN);
     if(data->dest_endpoint == CLOUD_EP)
@@ -163,6 +218,8 @@ void App_init(const app_global_functions_t * functions)
     configure_leds();
 
     setSysPeriodicCb();
+
+    //srand(rand());
 
     // Set callback for received unicast messages
     lib_data->setDataReceivedCb(dataReceivedCb);
